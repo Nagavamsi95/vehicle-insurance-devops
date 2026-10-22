@@ -1,29 +1,3 @@
-name: CI/CD
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run tests
-        run: python -m pytest -v
-
   build-and-push:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -38,26 +12,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:${{ github.sha }}
+      - name: Build image locally for scanning
+        run: docker build -t vehicle-insurance:scan .
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to server over SSH
-        uses: appleboy/ssh-action@v1
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ec2-user
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
-            sudo docker rm -f vehicle-insurance || true
-            sudo docker run -d --restart always --name vehicle-insurance -p 80:5000 ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
+          image-ref: vehicle-insurance:scan
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Push image to Docker Hub
+        run: |
+          docker tag vehicle-insurance:scan ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
+          docker tag vehicle-insurance:scan ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:${{ github.sha }}
