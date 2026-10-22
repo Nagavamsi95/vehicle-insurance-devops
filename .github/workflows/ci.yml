@@ -42,7 +42,7 @@ jobs:
         run: docker build -t vehicle-insurance:scan .
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: vehicle-insurance:scan
           severity: CRITICAL,HIGH
