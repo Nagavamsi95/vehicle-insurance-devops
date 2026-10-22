@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Your estimated premium</h1>
-<p class="premium">₹{{ premium }} per year</p>
+<p class="premium">₹{{ "{:,.0f}".format(premium) }} per year</p>
 <a href="{{ url_for('quote_page') }}">Calculate another</a>
 {% endblock %}
