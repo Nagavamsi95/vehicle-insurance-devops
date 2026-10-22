@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  test-and-build:
+  test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out the code
         uses: actions/checkout@v4
@@ -25,5 +24,40 @@ jobs:
       - name: Run tests
         run: python -m pytest -v
 
-      - name: Build Docker image
-        run: docker build -t vehicle-insurance:${{ github.sha }} .
+  build-and-push:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest
+            sudo docker rm -f vehicle-insurance || true
+            sudo docker run -d --restart always --name vehicle-insurance -p 80:5000 ${{ secrets.DOCKERHUB_USERNAME }}/vehicle-insurance:latest

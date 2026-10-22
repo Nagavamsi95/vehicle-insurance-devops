@@ -12,6 +12,12 @@ provider "aws" {
   region = "us-east-1"
 }
 
+variable "ssh_public_key_path" {
+  description = "Path to the public key that can log in to the server"
+  type        = string
+  default     = "C:/Users/kolak/.ssh/vehicle_deploy.pub"
+}
+
 variable "allowed_ssh_cidr" {
   description = "IP range allowed to SSH. Replace 0.0.0.0/0 with your own IP as x.x.x.x/32 for safety."
   type        = string
@@ -100,6 +106,12 @@ resource "aws_security_group" "web" {
   tags = { Name = "vehicle-insurance-web-sg" }
 }
 
+# The public key that allows GitHub Actions to log in
+resource "aws_key_pair" "deploy" {
+  key_name   = "vehicle-insurance-deploy"
+  public_key = file(var.ssh_public_key_path)
+}
+
 # Latest Amazon Linux 2023 image, looked up automatically
 data "aws_ssm_parameter" "al2023" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
@@ -111,6 +123,7 @@ resource "aws_instance" "web" {
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.web.id]
+  key_name                    = aws_key_pair.deploy.key_name
   user_data_replace_on_change = true
 
   # Runs on first boot: installs Docker and starts the app container
