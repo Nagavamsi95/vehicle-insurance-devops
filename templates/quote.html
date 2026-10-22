@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Get a quote</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="{{ url_for('quote_page') }}">
+  <label>Vehicle age (years) <input type="number" name="vehicle_age" min="0" required></label>
+  <label>Driver age <input type="number" name="driver_age" min="16" required></label>
+  <label>Vehicle value (₹) <input type="number" name="vehicle_value" min="0" step="any" required></label>
+  <button type="submit">Calculate premium</button>
+</form>
+{% endblock %}
