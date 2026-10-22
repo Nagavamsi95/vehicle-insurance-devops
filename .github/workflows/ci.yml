@@ -41,13 +41,15 @@ jobs:
       - name: Build image locally for scanning
         run: docker build -t vehicle-insurance:scan .
 
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.28.0
-        with:
-          image-ref: vehicle-insurance:scan
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
+            - name: Scan image with Trivy
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.58.0 image \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed \
+            vehicle-insurance:scan
 
       - name: Push image to Docker Hub
         run: |
